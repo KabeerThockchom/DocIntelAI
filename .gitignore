@@ -1,0 +1,23 @@
+# Ignore node_modules and build files
+node_modules/
+build/
+dist/
+
+# Ignore environment variables and config files
+.env
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+
+# Ignore OS generated files
+.DS_Store
+
+# Ignore Python related files
+__pycache__/
+*.pyc
+venv/
+env/
+
+# Ignore the nested git repository
+docintel/frontend/.git/
