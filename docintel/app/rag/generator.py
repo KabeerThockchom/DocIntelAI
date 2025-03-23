@@ -58,26 +58,29 @@ def generate_answer(
         response = azure_openai_client.chat.completions.create(
             model=os.getenv("DEPLOYMENT_NAME", "gpt-4o-mini"),
             messages=final_prompt,
-            temperature=0.7,
+            temperature=0.5,
             max_tokens=max_tokens
         )
         
         answer = response.choices[0].message.content.strip()
         
-        # Extract citations from the answer
-        citations = _extract_citations(answer, citation_map)
+        # Return all citations instead of extracting only the referenced ones
+        all_citations = [
+            {**citation_data, "citation_id": citation_id} 
+            for citation_id, citation_data in citation_map.items()
+        ]
         
-        log_step("RAG", f"Generated answer with {len(citations)} citations")
+        log_step("RAG", f"Generated answer with all {len(all_citations)} citations")
         return {
             "answer": answer,
-            "citations": citations
+            "citations": all_citations
         }
 
 async def generate_answer_async(
     query: str, 
     retrieved_chunks: List[Dict[str, Any]], 
     chat_history: Optional[List[Dict[str, str]]] = None,
-    max_tokens: int = 2000  # Increased from 1500 to take advantage of higher limits
+    max_tokens: int = 4096  # Increased from 1500 to take advantage of higher limits
 ) -> Dict[str, Any]:
     """
     Generate an answer asynchronously using Azure OpenAI referencing the retrieved chunks.
@@ -125,23 +128,26 @@ async def generate_answer_async(
             lambda: azure_openai_client.chat.completions.create(
                 model=os.getenv("DEPLOYMENT_NAME", "gpt-4o-mini"),
                 messages=final_prompt,
-                temperature=0.7,
+                temperature=0.5,
                 max_tokens=max_tokens
             )
         )
         
         answer = response.choices[0].message.content.strip()
         
-        # Extract citations from the answer
-        citations = await loop.run_in_executor(
+        # Return all citations instead of extracting only the referenced ones
+        all_citations = await loop.run_in_executor(
             thread_pool,
-            lambda: _extract_citations(answer, citation_map)
+            lambda: [
+                {**citation_data, "citation_id": citation_id} 
+                for citation_id, citation_data in citation_map.items()
+            ]
         )
         
-        log_step("RAG", f"Generated answer asynchronously with {len(citations)} citations")
+        log_step("RAG", f"Generated answer asynchronously with all {len(all_citations)} citations")
         return {
             "answer": answer,
-            "citations": citations
+            "citations": all_citations
         }
 
 async def batch_generate_answers(
@@ -263,6 +269,13 @@ def _get_system_prompt() -> Dict[str, str]:
             "   | -------- | -------- | -------- |\n"
             "   | Cell 1   | Cell 2   | Cell 3   |\n"
             "   ```\n"
+            "   For column alignment, use colons in the header separator row:\n"
+            "   ```\n"
+            "   | Left     | Center   | Right    |\n"
+            "   | :------- |:--------:| --------:|\n"
+            "   | Left     | Center   | Right    |\n"
+            "   ```\n"
+            "   Each column should have consistent width. Add appropriate spacing for better readability.\n"
             "8. Use triple backticks for code blocks with language specification:\n"
             "   ```python\n"
             "   def example():\n"

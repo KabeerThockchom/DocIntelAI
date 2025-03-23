@@ -1,6 +1,6 @@
-# Document Processor Package
+# Inkling Package
 """
-Document processor for parsing, chunking, embedding, and retrieving document content.
+Inkling for parsing, chunking, embedding, and retrieving document content.
 """
 
 __version__ = "1.0.0"

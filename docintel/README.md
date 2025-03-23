@@ -1,4 +1,4 @@
-# Document Processor
+# Inkling
 
 A comprehensive document processing system that parses, chunks, embeds, and retrieves content from various document types. The system supports PDF, DOCX, PPTX, and Excel/CSV files, with intelligent OCR capabilities for complex documents.
 

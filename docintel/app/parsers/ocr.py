@@ -22,7 +22,7 @@ class OCRProcessor:
     Processes complex documents using OCR with Azure OpenAI's GPT-4o-mini.
     """
     
-    def __init__(self, max_workers: int = 4):
+    def __init__(self, max_workers: int = 20):
         """
         Initialize the OCR processor.
         

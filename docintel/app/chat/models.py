@@ -92,7 +92,17 @@ class ChatMessage(BaseModel):
                     }
                 ],
                 "metadata": {
-                    "tokens": 42
+                    "tokens": 42,
+                    "retrieved_chunks": [
+                        {
+                            "chunk_id": "chunk123",
+                            "document_id": "doc123",
+                            "document_name": "Renewable Energy Report.pdf",
+                            "text": "Solar energy production increased by 25% in the last year...",
+                            "page_number": 5,
+                            "relevance_score": 0.92
+                        }
+                    ]
                 }
             }
         }

@@ -11,18 +11,26 @@ load_dotenv()
 
 # Create FastAPI app
 app = FastAPI(
-    title="Document Processor API",
+    title="Inkling API",
     description="API for parsing, chunking, embedding, retrieving, and chatting with document content",
     version="1.0.0",
 )
 
-# Configure CORS
+# Configure CORS - list specific origins instead of wildcard
+origins = [
+    "http://localhost:8000",
+    "http://127.0.0.1:8000",
+    "http://0.0.0.0:8000",
+    # Add any other origins that need access
+]
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],  # Allows all origins
+    allow_origins=origins,
     allow_credentials=True,
-    allow_methods=["*"],  # Allows all methods
-    allow_headers=["*"],  # Allows all headers
+    allow_methods=["*"],
+    allow_headers=["*"],
+    expose_headers=["X-Queue-ID", "X-Realtime-Stream", "Content-Type", "Content-Length"],
 )
 
 # Import routes
@@ -36,7 +44,7 @@ app.include_router(chat_routes.router, prefix="/api/chat", tags=["Chat"])
 @app.get("/api/health", tags=["Health"])
 async def health_check():
     """Health check endpoint."""
-    return {"status": "ok", "message": "Document Processor API is running"}
+    return {"status": "ok", "message": "Inkling API is running"}
 
 # Path to the frontend build directory
 current_file = Path(__file__)

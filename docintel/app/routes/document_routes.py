@@ -418,7 +418,7 @@ async def get_document_file(document_id: str, page: int = Query(None, descriptio
             uploads_dir = os.path.join(os.getcwd(), "uploads")
             if not os.path.exists(uploads_dir):
                 # Try relative path if absolute path doesn't exist
-                uploads_dir = os.path.join("document_processor", "uploads")
+                uploads_dir = os.path.join("docintel", "uploads")
                 if not os.path.exists(uploads_dir):
                     uploads_dir = "uploads"
             
