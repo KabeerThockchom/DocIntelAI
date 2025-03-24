@@ -1,7 +1,8 @@
 import os
 import json
+import time
 from typing import List, Dict, Any, Optional
-from fastapi import APIRouter, BackgroundTasks, HTTPException, Depends, Body
+from fastapi import APIRouter, BackgroundTasks, HTTPException, Depends, Body, Request
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel, Field
 
@@ -19,8 +20,13 @@ router = APIRouter()
 # Initialize components
 drive_client = GoogleDriveClient()
 chunker = DocumentChunker()
-chroma_db = ChromaDBStorage()
 embedder = AzureOpenAIEmbedder()
+
+# Helper function to get ChromaDB storage for the current user
+def get_user_storage(request: Request):
+    """Get ChromaDB storage for the current user."""
+    user_id = getattr(request.state, "user_id", None)
+    return ChromaDBStorage(user_id=user_id)
 
 
 # Models
@@ -74,18 +80,37 @@ async def authenticate(auth_request: AuthRequest):
         auth_request: Authentication request
     
     Returns:
-        Authentication status
+        Authentication status with tokens
     """
     try:
-        success = drive_client.exchange_code(auth_request.code)
+        log_step("Drive Auth", f"Received authentication code: {auth_request.code[:10]}...")
         
-        if success:
+        result = drive_client.exchange_code(auth_request.code)
+        
+        if result:
+            # Return tokens if available
+            if hasattr(drive_client, 'creds') and drive_client.creds:
+                log_step("Drive Auth", "Authentication successful, returning tokens")
+                return {
+                    "status": "success", 
+                    "message": "Authentication successful",
+                    "access_token": drive_client.creds.token,
+                    "refresh_token": drive_client.creds.refresh_token,
+                    "expires_in": drive_client.creds.expiry.timestamp() - time.time() if drive_client.creds.expiry else 3600
+                }
+            
+            log_step("Drive Auth", "Authentication successful but no credentials available")
             return {"status": "success", "message": "Authentication successful"}
         else:
-            raise HTTPException(status_code=400, detail="Authentication failed")
+            log_step("Drive Auth", "Authentication failed during code exchange", level="error")
+            raise HTTPException(status_code=400, detail="Authentication failed during code exchange")
     except Exception as e:
         log_step("Drive Auth", f"Error authenticating: {str(e)}", level="error")
-        raise HTTPException(status_code=500, detail=str(e))
+        # Include more detailed error information
+        if hasattr(e, "__dict__"):
+            error_details = str(e.__dict__)
+            log_step("Drive Auth", f"Error details: {error_details}", level="error")
+        raise HTTPException(status_code=500, detail=f"Authentication error: {str(e)}")
 
 
 @router.get("/files")
@@ -156,15 +181,17 @@ async def process_drive_files(request: DriveFilesRequest):
 
 @router.post("/process-folder")
 async def process_drive_folder(
+    request: Request,
     background_tasks: BackgroundTasks,
-    request: DriveFolderRequest
+    folder_request: DriveFolderRequest
 ):
     """
     Process a folder from Google Drive.
     
     Args:
+        request: Request object
         background_tasks: Background tasks
-        request: Drive folder request
+        folder_request: Drive folder request
     
     Returns:
         Processing status
@@ -173,23 +200,87 @@ async def process_drive_folder(
         # Schedule folder processing as background task
         background_tasks.add_task(
             process_drive_folder_task,
-            request.folder_id,
-            request.file_types,
-            request.metadata
+            request,
+            folder_request.folder_id,
+            folder_request.file_types,
+            folder_request.metadata
         )
         
-        return {"status": "processing", "folder_id": request.folder_id}
+        return {"status": "processing", "folder_id": folder_request.folder_id}
     except Exception as e:
         log_step("Drive Folder Processing", f"Error: {str(e)}", level="error")
         raise HTTPException(status_code=500, detail=str(e))
 
 
+@router.post("/import/{file_id}", response_model=Dict[str, Any])
+async def import_drive_file(
+    request: Request,
+    file_id: str,
+    background_tasks: BackgroundTasks,
+    metadata: Optional[Dict[str, Any]] = Body({}, embed=True)
+):
+    """
+    Import a file from Google Drive.
+    
+    Args:
+        request: Request object
+        file_id: Google Drive file ID
+        background_tasks: Background tasks
+        metadata: Document metadata
+    
+    Returns:
+        Import status
+    """
+    try:
+        with Timer("Process Drive File"):
+            log_step("Drive File Processing", f"Processing file: {file_id}")
+            
+            # Download file from Google Drive
+            file_data = drive_client.download_file(file_id)
+            
+            if not file_data:
+                log_step("Drive File Processing", f"Failed to download file: {file_id}", level="error")
+                return {"status": "failed", "message": "Failed to download file"}
+            
+            file_metadata = file_data["metadata"]
+            file_content = file_data["content"]
+            filename = file_metadata["name"]
+            
+            # Get file extension
+            file_ext = os.path.splitext(filename)[1].lower().lstrip(".")
+            
+            # Parse document based on file type
+            if file_ext == "pdf":
+                parser = PDFParser(chunker)
+                processed_doc = parser.parse_stream(file_content, filename, metadata)
+            elif file_ext == "docx":
+                parser = DocxParser(chunker)
+                processed_doc = parser.parse_stream(file_content, filename, metadata)
+            else:
+                log_step("Drive File Processing", f"Unsupported file type: {file_ext}", level="warning")
+                return {"status": "failed", "message": "Unsupported file type"}
+            
+            # Generate embeddings for chunks
+            embeddings = embedder.generate_embeddings(processed_doc.chunks)
+            
+            # Store document and embeddings
+            document_id = get_user_storage(request).store_document(processed_doc, embeddings)
+            
+            log_step("Drive File Processing", f"Completed processing file: {filename}")
+            
+            return {"status": "success", "document_id": document_id}
+    except Exception as e:
+        log_step("Drive File Processing", f"Error processing file {file_id}: {str(e)}", level="error")
+        return {"status": "failed", "message": str(e)}
+
+
 # Helper functions
-def process_drive_file_task(file_id: str, metadata: Optional[Dict[str, Any]] = None):
+def process_drive_file_task(request: Request, file_id: str, metadata: Optional[Dict[str, Any]] = None):
     """
     Process a file from Google Drive in the background.
     
     Args:
+        request: Request object
         file_id: Google Drive file ID
         metadata: Additional metadata
     """
@@ -226,7 +317,7 @@ def process_drive_file_task(file_id: str, metadata: Optional[Dict[str, Any]] = N
             embeddings = embedder.generate_embeddings(processed_doc.chunks)
             
             # Store document and embeddings
-            document_id = chroma_db.store_document(processed_doc, embeddings)
+            document_id = get_user_storage(request).store_document(processed_doc, embeddings)
             
             log_step("Drive File Processing", f"Completed processing file: {filename}")
             
@@ -235,6 +326,7 @@ def process_drive_file_task(file_id: str, metadata: Optional[Dict[str, Any]] = N
 
 
 def process_drive_folder_task(
+    request: Request,
     folder_id: str,
     file_types: List[str],
     metadata: Optional[Dict[str, Any]] = None
@@ -243,6 +335,7 @@ def process_drive_folder_task(
     Process a folder from Google Drive in the background.
     
     Args:
+        request: Request object
         folder_id: Google Drive folder ID
         file_types: List of file extensions to process
         metadata: Additional metadata
@@ -265,7 +358,7 @@ def process_drive_folder_task(
                 file_id = file["id"]
                 
                 try:
-                    process_drive_file_task(file_id, metadata)
+                    process_drive_file_task(request, file_id, metadata)
                 except Exception as e:
                     log_step("Drive Folder Processing", f"Error processing file {file_id}: {str(e)}", level="error")
                     continue

@@ -55,16 +55,28 @@ class DocxParser(BaseDocumentParser):
             # Prepare metadata
             doc_metadata = self.prepare_metadata(filename, file_size, metadata)
             
+            # Check if force_ocr is set in metadata
+            force_ocr = metadata.get("force_ocr", False) if metadata else False
+            
             # Start timer for processing
             start_time = time.time()
             
             try:
-                # Try simple DOCX parsing first
-                text_by_section, is_complex = self._extract_text_from_docx(file_path)
+                use_ocr = False
+                text_by_section = {}
                 
-                # If simple parsing failed or detected a complex document, use OCR
-                if is_complex:
-                    log_step("DOCX Parsing", "Complex DOCX detected, using OCR")
+                # If not forcing OCR, try simple DOCX parsing first
+                if not force_ocr:
+                    text_by_section, is_complex = self._extract_text_from_docx(file_path)
+                    use_ocr = is_complex
+                else:
+                    log_step("DOCX Parsing", "Force OCR is enabled, skipping normal text extraction")
+                    is_complex = True
+                    use_ocr = True
+                
+                # Use OCR if needed (either forced or complex document)
+                if use_ocr:
+                    log_step("DOCX Parsing", "Using OCR for DOCX processing")
                     ocr_results = self.ocr_processor.process_file(file_path, "docx")
                     
                     # Convert OCR results to text by section format
@@ -170,10 +182,10 @@ class DocxParser(BaseDocumentParser):
         metadata: Optional[Dict[str, Any]] = None
     ) -> ProcessedDocument:
         """
-        Parse a DOCX from a file stream.
+        Parse a DOCX file from a byte stream.
         
         Args:
-            file_stream: File-like object containing the DOCX
+            file_stream: File-like object containing DOCX data
             filename: Original filename
             metadata: Additional metadata
             
@@ -181,15 +193,18 @@ class DocxParser(BaseDocumentParser):
             ProcessedDocument object with extracted content and metadata
         """
         with Timer("DOCX Stream Parsing"):
-            log_step("DOCX Parsing", f"Parsing DOCX from stream: {filename}")
+            log_step("DOCX Parsing", f"Parsing DOCX stream: {filename}")
             
             # Get file size
-            file_stream.seek(0, os.SEEK_END)
-            file_size = file_stream.tell()
-            file_stream.seek(0)
+            file_stream.seek(0, 2)  # Seek to end
+            file_size = file_stream.tell()  # Get position (size)
+            file_stream.seek(0)  # Reset to beginning
             
             # Prepare metadata
             doc_metadata = self.prepare_metadata(filename, file_size, metadata)
+            
+            # Check if force_ocr is set in metadata
+            force_ocr = metadata.get("force_ocr", False) if metadata else False
             
             # Start timer for processing
             start_time = time.time()
@@ -199,12 +214,21 @@ class DocxParser(BaseDocumentParser):
                 docx_data = file_stream.read()
                 memory_stream = BytesIO(docx_data)
                 
-                # Try simple DOCX parsing first
-                text_by_section, is_complex = self._extract_text_from_docx_stream(memory_stream)
+                use_ocr = False
+                text_by_section = {}
                 
-                # If simple parsing failed or detected a complex document, use OCR
-                if is_complex:
-                    log_step("DOCX Parsing", "Complex DOCX detected, using OCR")
+                # If not forcing OCR, try simple DOCX parsing first
+                if not force_ocr:
+                    text_by_section, is_complex = self._extract_text_from_docx_stream(memory_stream)
+                    use_ocr = is_complex
+                else:
+                    log_step("DOCX Parsing", "Force OCR is enabled for stream, skipping normal text extraction")
+                    is_complex = True
+                    use_ocr = True
+                
+                # Use OCR if needed (either forced or complex document)
+                if use_ocr:
+                    log_step("DOCX Parsing", "Using OCR for DOCX stream processing")
                     # Reset file stream
                     file_stream.seek(0)
                     ocr_results = self.ocr_processor.process_stream(file_stream, "docx", filename)

@@ -255,19 +255,22 @@ class GoogleDriveClient:
             log_step("Google Drive", f"Credentials file not found at {self.credentials_path}", level="error")
             raise FileNotFoundError(f"Credentials file not found at {self.credentials_path}")
             
+        # Create the flow with all required scopes
         flow = InstalledAppFlow.from_client_secrets_file(
             str(self.credentials_path), 
             SCOPES,
             # Use proper redirect URI for web application
-            redirect_uri="http://localhost:3000/documents"  # Updated to redirect to documents page
+            redirect_uri="http://localhost:8000/google-drive-callback"
         )
         
+        # Configure authorization parameters
         auth_url, _ = flow.authorization_url(
             access_type='offline',
             include_granted_scopes='true',
-            prompt='consent'  # Always show consent screen to get refresh token
+            prompt='consent',  # Always show consent screen to get refresh token
         )
         
+        log_step("Google Drive", f"Generated auth URL: {auth_url[:100]}...")
         return auth_url
     
     def exchange_code(self, code: str) -> bool:
@@ -281,13 +284,16 @@ class GoogleDriveClient:
             True if successful, False otherwise
         """
         try:
+            log_step("Google Drive", f"Exchanging auth code for token...")
+            
+            # Create the flow with matching parameters
             flow = InstalledAppFlow.from_client_secrets_file(
                 str(self.credentials_path), 
                 SCOPES,
-                # Use proper redirect URI for web application
-                redirect_uri="http://localhost:3000/documents"  # Updated to match get_auth_url
+                redirect_uri="http://localhost:8000/google-drive-callback"
             )
             
+            # Fetch the token
             flow.fetch_token(code=code)
             self.creds = flow.credentials
             
@@ -298,6 +304,7 @@ class GoogleDriveClient:
             # Build the Drive API service
             self.service = build('drive', 'v3', credentials=self.creds)
             
+            log_step("Google Drive", "Authentication successful")
             return True
             
         except Exception as e:

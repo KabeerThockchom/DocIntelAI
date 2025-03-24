@@ -1,10 +1,11 @@
 import os
 from dotenv import load_dotenv
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse
 from pathlib import Path
+import logging
 
 # Load environment variables
 load_dotenv()
@@ -29,9 +30,24 @@ app.add_middleware(
     allow_origins=origins,
     allow_credentials=True,
     allow_methods=["*"],
-    allow_headers=["*"],
+    allow_headers=["*", "X-User-ID"],
     expose_headers=["X-Queue-ID", "X-Realtime-Stream", "Content-Type", "Content-Length"],
 )
+
+# Add middleware to extract and validate user information
+@app.middleware("http")
+async def user_id_middleware(request: Request, call_next):
+    # Extract user ID from headers if present
+    user_id = request.headers.get("X-User-ID")
+    if user_id:
+        # Make user_id available to route handlers via request.state
+        request.state.user_id = user_id
+        logging.info(f"Request from user: {user_id}")
+    else:
+        request.state.user_id = None
+        logging.info("Request from unauthenticated user")
+    
+    return await call_next(request)
 
 # Import routes
 from app.routes import document_routes, drive_routes, chat_routes

@@ -79,6 +79,7 @@ def optimize_query(query: str, chat_history: Optional[List[Dict[str, str]]] = No
 def split_query_into_subqueries(query: str, chat_history: Optional[List[Dict[str, str]]] = None) -> List[str]:
     """
     Split a complex query into multiple targeted sub-queries to improve retrieval.
+    Takes chat history into account for follow-up questions.
     
     Args:
         query: The input query to split
@@ -90,8 +91,16 @@ def split_query_into_subqueries(query: str, chat_history: Optional[List[Dict[str
     try:
         log_step("RAG", f"Splitting query: {query}")
         
-        # NOTE: Removed the check for short queries to ensure all queries go through splitting
-        # Even if the query is short, we'll let the LLM decide how to handle it
+        # Enhanced handling of short follow-up queries with chat history
+        is_short_query = len(query.split()) <= 5
+        has_chat_history = chat_history is not None and len(chat_history) > 0
+        
+        # Log the chat context for debugging
+        if has_chat_history:
+            last_message = chat_history[-1] if chat_history else None
+            last_user_message = next((msg for msg in reversed(chat_history) if msg.get("role") == "user"), None)
+            log_step("RAG", f"Using chat history context. Last user message: {last_user_message.get('content')[:50] if last_user_message else 'None'}")
+            log_step("RAG", f"Short follow-up detected: {is_short_query and has_chat_history}")
         
         # Create system prompt
         system = {
@@ -110,16 +119,32 @@ def split_query_into_subqueries(query: str, chat_history: Optional[List[Dict[str
                 "\n6. Focus on factual queries, not opinionated aspects."
                 "\n7. Preserve named entities, technical terms, and specific references."
                 "\n8. Ensure sub-questions collectively cover all aspects of the original question."
+                "\n9. For short follow-up questions like 'by region' or 'what about 2022?', use the conversation history to understand the full context."
+                "\n10. For follow-up questions, explicitly include the context from previous queries to make the sub-questions self-contained."
                 "\n\n"
                 "Format your response as a JSON object with a 'sub_queries' array containing the list of sub-questions."
             )
         }
         
-        # Create user message
-        user = {
-            "role": "user",
-            "content": f"Split this question into simple sub-questions for effective document search and return them as a JSON array: \"{query}\""
-        }
+        # Create user message - special handling for short follow-ups with history
+        if is_short_query and has_chat_history:
+            # Find the most recent user query for context
+            last_user_query = next((msg["content"] for msg in reversed(chat_history) if msg["role"] == "user"), None)
+            
+            user = {
+                "role": "user",
+                "content": (
+                    f"This is a follow-up question to a previous query. The previous query was: '{last_user_query}'\n\n"
+                    f"The follow-up question is: '{query}'\n\n"
+                    f"Split this into context-aware sub-questions that incorporate both the original query and the follow-up. "
+                    f"Make sure the sub-questions are fully standalone and include all necessary context from both queries."
+                )
+            }
+        else:
+            user = {
+                "role": "user",
+                "content": f"Split this question into simple sub-questions for effective document search and return them as a JSON array: \"{query}\""
+            }
         
         # Add chat history if provided
         messages = [system]
@@ -178,20 +203,50 @@ def split_query_into_subqueries(query: str, chat_history: Optional[List[Dict[str
                     "\n6. Focus on factual queries, not opinionated aspects."
                     "\n7. Preserve named entities, technical terms, and specific references."
                     "\n8. Ensure sub-questions collectively cover all aspects of the original question."
+                    "\n9. For follow-up questions, use the conversation history to understand the full context."
+                    "\n10. Include all necessary context from previous queries in follow-up questions."
                     "\n\n"
                     "Format your response as a simple list with one sub-question per line. No numbering or extra text."
                 )
             }
             
-            # Create fallback user message
-            fallback_user = {
-                "role": "user",
-                "content": f"Split this question into simple sub-questions for search, one per line: \"{query}\""
-            }
+            # Create fallback user message based on whether this is a follow-up or not
+            if is_short_query and has_chat_history:
+                # Find the most recent user query for context
+                last_user_query = next((msg["content"] for msg in reversed(chat_history) if msg["role"] == "user"), None)
+                
+                fallback_user = {
+                    "role": "user",
+                    "content": (
+                        f"This is a follow-up question to a previous query. The previous query was: '{last_user_query}'\n\n"
+                        f"The follow-up question is: '{query}'\n\n"
+                        f"Split this into context-aware sub-questions, one per line, that incorporate both the original query and the follow-up."
+                    )
+                }
+            else:
+                fallback_user = {
+                    "role": "user",
+                    "content": f"Split this question into simple sub-questions for search, one per line: \"{query}\""
+                }
             
             # Try the fallback approach
             try:
-                fallback_messages = [fallback_system, fallback_user]
+                fallback_messages = [fallback_system]
+                
+                # Add chat history to fallback approach if available
+                if chat_history and len(chat_history) > 0:
+                    fallback_messages.append({
+                        "role": "user", 
+                        "content": "For context, here is the recent conversation history:"
+                    })
+                    
+                    # Add up to 3 most recent exchanges
+                    recent_history = chat_history[-min(len(chat_history), 6):]
+                    for msg in recent_history:
+                        fallback_messages.append(msg)
+                
+                fallback_messages.append(fallback_user)
+                
                 response = azure_openai_client.chat.completions.create(
                     model=os.getenv("DEPLOYMENT_NAME", "gpt-4o-mini"),
                     messages=fallback_messages,
@@ -230,8 +285,39 @@ def split_query_into_subqueries(query: str, chat_history: Optional[List[Dict[str
         
         # Ensure we have at least 2 sub-queries
         if len(sub_queries) < 2:
+            # For follow-up queries, create contextual variations
+            if is_short_query and has_chat_history:
+                last_user_query = next((msg["content"] for msg in reversed(chat_history) if msg["role"] == "user"), None)
+                if last_user_query:
+                    # Create contextual sub-queries based on the previous query and current follow-up
+                    if "by region" in query.lower() or "region" in query.lower():
+                        sub_queries = [
+                            f"{last_user_query} by geographic region",
+                            f"{last_user_query} by region breakdown",
+                            f"regional data for {last_user_query}"
+                        ]
+                    elif "by product" in query.lower() or "product" in query.lower():
+                        sub_queries = [
+                            f"{last_user_query} by product category",
+                            f"{last_user_query} product breakdown",
+                            f"product-specific data for {last_user_query}"
+                        ]
+                    elif "year" in query.lower() or "annual" in query.lower():
+                        sub_queries = [
+                            f"{last_user_query} annual trends",
+                            f"{last_user_query} year over year",
+                            f"yearly comparison of {last_user_query}"
+                        ]
+                    else:
+                        # Generic contextual sub-queries
+                        sub_queries = [
+                            f"{last_user_query} {query}",
+                            f"{query} in context of {last_user_query}",
+                            f"information about {last_user_query} regarding {query}"
+                        ]
+                    log_step("RAG", f"Created contextual sub-queries for follow-up '{query}' based on previous query '{last_user_query}'")
             # If only one sub-query and it's identical to the original query, create a simple variation
-            if len(sub_queries) == 1 and sub_queries[0].lower().strip() == query.lower().strip():
+            elif len(sub_queries) == 1 and sub_queries[0].lower().strip() == query.lower().strip():
                 sub_queries.append(f"Information about {query.strip()}")
             # If empty, use the original query plus a variation
             elif len(sub_queries) == 0:
@@ -249,7 +335,15 @@ def split_query_into_subqueries(query: str, chat_history: Optional[List[Dict[str
         if not unique_sub_queries:
             unique_sub_queries = [query]
         
-        log_step("RAG", f"Split query into {len(unique_sub_queries)} sub-queries")
+        # Log the results with context information
+        if is_short_query and has_chat_history:
+            last_user_query = next((msg["content"] for msg in reversed(chat_history) if msg["role"] == "user"), None)
+            log_step("RAG", f"Follow-up query '{query}' in context of '{last_user_query}' split into {len(unique_sub_queries)} sub-queries")
+            for i, sq in enumerate(unique_sub_queries):
+                log_step("RAG", f"  Sub-query {i+1}: {sq}")
+        else:
+            log_step("RAG", f"Query '{query}' split into {len(unique_sub_queries)} sub-queries")
+        
         return unique_sub_queries
         
     except Exception as e:

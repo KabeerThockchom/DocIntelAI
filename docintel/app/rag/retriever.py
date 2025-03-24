@@ -5,10 +5,14 @@ import numpy as np
 from app.embeddings.embedder import AzureOpenAIEmbedder
 from app.storage.chroma_db import ChromaDBStorage
 from app.utils.logging import log_step, Timer
+from fastapi import Request
+import contextvars
 
-# Initialize components
-chroma_db = ChromaDBStorage()
+# Initialize the embedder
 embedder = AzureOpenAIEmbedder()
+
+# Context variable to store the current user ID during async operations
+current_user_id = contextvars.ContextVar('current_user_id', default=None)
 
 def get_dummy_chunk(text: str) -> Any:
     """
@@ -31,10 +35,15 @@ def get_dummy_chunk(text: str) -> Any:
         source_document_type="query"
     )
 
+def get_user_storage(user_id: Optional[str] = None):
+    """Get ChromaDB storage for the specified user."""
+    return ChromaDBStorage(user_id=user_id)
+
 async def retrieve_relevant_chunks_async(
     query: str, 
     filter_criteria: Optional[Dict[str, Any]] = None, 
-    top_k: int = 10
+    top_k: int = 10,
+    user_id: Optional[str] = None
 ) -> List[Dict[str, Any]]:
     """
     Retrieve the most relevant chunks for a query asynchronously.
@@ -43,6 +52,7 @@ async def retrieve_relevant_chunks_async(
         query: The query text
         filter_criteria: Optional filters
         top_k: Number of chunks to retrieve
+        user_id: Optional user ID for collection selection
         
     Returns:
         List of relevant chunks with metadata
@@ -50,43 +60,54 @@ async def retrieve_relevant_chunks_async(
     with Timer("Retrieve Chunks Async"):
         log_step("RAG", f"Retrieving chunks asynchronously for query: {query[:50]}...")
         
-        # Generate embedding for query asynchronously
-        dummy_chunk = get_dummy_chunk(query)
-        query_embeddings = await embedder.generate_embeddings_async([dummy_chunk])
+        # Store the user ID in the context variable
+        token = current_user_id.set(user_id)
         
-        if not query_embeddings:
-            log_step("RAG", "Failed to generate query embedding", level="error")
-            return []
-        
-        query_embedding = list(query_embeddings.values())[0]
-        
-        # Retrieve more chunks than needed for diversity
-        # Use a thread to run the synchronous chroma_db.query_similar
-        loop = asyncio.get_event_loop()
-        results = await loop.run_in_executor(
-            None,
-            lambda: chroma_db.query_similar(
-                query_text=query,
-                embedding=query_embedding,
-                n_results=top_k * 2,  # Get more results for post-processing
-                filter_criteria=filter_criteria
+        try:
+            # Generate embedding for query asynchronously
+            dummy_chunk = get_dummy_chunk(query)
+            query_embeddings = await embedder.generate_embeddings_async([dummy_chunk])
+            
+            if not query_embeddings:
+                log_step("RAG", "Failed to generate query embedding", level="error")
+                return []
+            
+            query_embedding = list(query_embeddings.values())[0]
+            
+            # Get the ChromaDB storage for this user
+            chroma_db = get_user_storage(user_id)
+            
+            # Retrieve more chunks than needed for diversity
+            # Use a thread to run the synchronous chroma_db.query_similar
+            loop = asyncio.get_event_loop()
+            results = await loop.run_in_executor(
+                None,
+                lambda: chroma_db.query_similar(
+                    query_text=query,
+                    embedding=query_embedding,
+                    n_results=top_k * 2,  # Get more results for post-processing
+                    filter_criteria=filter_criteria
+                )
             )
-        )
-        
-        # Apply post-processing to improve retrieval quality
-        # Run post-processing in a separate thread to avoid blocking
-        processed_results = await loop.run_in_executor(
-            None,
-            lambda: _post_process_results(query, results, top_k)
-        )
-        
-        log_step("RAG", f"Retrieved {len(processed_results)} chunks asynchronously")
-        return processed_results
+            
+            # Apply post-processing to improve retrieval quality
+            # Run post-processing in a separate thread to avoid blocking
+            processed_results = await loop.run_in_executor(
+                None,
+                lambda: _post_process_results(query, results, top_k)
+            )
+            
+            log_step("RAG", f"Retrieved {len(processed_results)} chunks asynchronously")
+            return processed_results
+        finally:
+            # Reset the context variable
+            current_user_id.reset(token)
 
 def retrieve_relevant_chunks(
     query: str, 
     filter_criteria: Optional[Dict[str, Any]] = None, 
-    top_k: int = 10
+    top_k: int = 10,
+    user_id: Optional[str] = None
 ) -> List[Dict[str, Any]]:
     """
     Retrieve the most relevant chunks for a query.
@@ -95,6 +116,7 @@ def retrieve_relevant_chunks(
         query: The query text
         filter_criteria: Optional filters
         top_k: Number of chunks to retrieve
+        user_id: Optional user ID for collection selection
         
     Returns:
         List of relevant chunks with metadata
@@ -110,6 +132,9 @@ def retrieve_relevant_chunks(
             return []
         
         query_embedding = list(query_embeddings.values())[0]
+        
+        # Get the ChromaDB storage for this user
+        chroma_db = get_user_storage(user_id)
         
         # Retrieve more chunks than needed for diversity
         results = chroma_db.query_similar(
@@ -172,7 +197,8 @@ def _post_process_results(query: str, results: List[Dict[str, Any]], top_k: int)
 async def retrieve_relevant_chunks_for_multiple_queries(
     queries: List[str], 
     filter_criteria: Optional[Dict[str, Any]] = None, 
-    top_k: int = 10
+    top_k: int = 10,
+    user_id: Optional[str] = None
 ) -> List[Dict[str, Any]]:
     """
     Retrieve the most relevant chunks for multiple queries and merge the results.
@@ -181,6 +207,7 @@ async def retrieve_relevant_chunks_for_multiple_queries(
         queries: List of query texts
         filter_criteria: Optional filters
         top_k: Number of chunks to retrieve per query
+        user_id: Optional user ID for collection selection
         
     Returns:
         List of relevant chunks with metadata, with duplicates removed
@@ -194,7 +221,8 @@ async def retrieve_relevant_chunks_for_multiple_queries(
             task = retrieve_relevant_chunks_async(
                 query=query,
                 filter_criteria=filter_criteria,
-                top_k=top_k
+                top_k=top_k,
+                user_id=user_id
             )
             tasks.append(task)
         

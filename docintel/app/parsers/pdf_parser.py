@@ -55,16 +55,28 @@ class PDFParser(BaseDocumentParser):
             # Prepare metadata
             doc_metadata = self.prepare_metadata(filename, file_size, metadata)
             
+            # Check if force_ocr is set in metadata
+            force_ocr = metadata.get("force_ocr", False) if metadata else False
+            
             # Start timer for processing
             start_time = time.time()
             
             try:
-                # Try simple PDF parsing first
-                text_by_page, is_complex = self._extract_text_from_pdf(file_path)
+                use_ocr = False
+                text_by_page = {}
                 
-                # If simple parsing failed or detected a complex document, use OCR
-                if is_complex:
-                    log_step("PDF Parsing", "Complex PDF detected, using OCR")
+                # If not forcing OCR, try simple PDF parsing first
+                if not force_ocr:
+                    text_by_page, is_complex = self._extract_text_from_pdf(file_path)
+                    use_ocr = is_complex
+                else:
+                    log_step("PDF Parsing", "Force OCR is enabled, skipping normal text extraction")
+                    is_complex = True
+                    use_ocr = True
+                
+                # Use OCR if needed (either forced or complex document)
+                if use_ocr:
+                    log_step("PDF Parsing", "Using OCR for PDF processing")
                     ocr_results = self.ocr_processor.process_file(file_path, "pdf")
                     
                     # Convert OCR results to text by page format
@@ -165,10 +177,10 @@ class PDFParser(BaseDocumentParser):
         metadata: Optional[Dict[str, Any]] = None
     ) -> ProcessedDocument:
         """
-        Parse a PDF from a file stream.
+        Parse a PDF file from a byte stream.
         
         Args:
-            file_stream: File-like object containing the PDF
+            file_stream: File-like object containing PDF data
             filename: Original filename
             metadata: Additional metadata
             
@@ -176,15 +188,18 @@ class PDFParser(BaseDocumentParser):
             ProcessedDocument object with extracted content and metadata
         """
         with Timer("PDF Stream Parsing"):
-            log_step("PDF Parsing", f"Parsing PDF from stream: {filename}")
+            log_step("PDF Parsing", f"Parsing PDF stream: {filename}")
             
             # Get file size
-            file_stream.seek(0, os.SEEK_END)
-            file_size = file_stream.tell()
-            file_stream.seek(0)
+            file_stream.seek(0, 2)  # Seek to end
+            file_size = file_stream.tell()  # Get position (size)
+            file_stream.seek(0)  # Reset to beginning
             
             # Prepare metadata
             doc_metadata = self.prepare_metadata(filename, file_size, metadata)
+            
+            # Check if force_ocr is set in metadata
+            force_ocr = metadata.get("force_ocr", False) if metadata else False
             
             # Start timer for processing
             start_time = time.time()
@@ -194,12 +209,21 @@ class PDFParser(BaseDocumentParser):
                 pdf_data = file_stream.read()
                 memory_stream = BytesIO(pdf_data)
                 
-                # Try simple PDF parsing first
-                text_by_page, is_complex = self._extract_text_from_pdf_stream(memory_stream)
+                use_ocr = False
+                text_by_page = {}
                 
-                # If simple parsing failed or detected a complex document, use OCR
-                if is_complex:
-                    log_step("PDF Parsing", "Complex PDF detected, using OCR")
+                # If not forcing OCR, try simple PDF parsing first
+                if not force_ocr:
+                    text_by_page, is_complex = self._extract_text_from_pdf_stream(memory_stream)
+                    use_ocr = is_complex
+                else:
+                    log_step("PDF Parsing", "Force OCR is enabled for stream, skipping normal text extraction")
+                    is_complex = True
+                    use_ocr = True
+                
+                # Use OCR if needed (either forced or complex document)
+                if use_ocr:
+                    log_step("PDF Parsing", "Using OCR for PDF stream processing")
                     # Reset file stream
                     file_stream.seek(0)
                     ocr_results = self.ocr_processor.process_stream(file_stream, "pdf", filename)
