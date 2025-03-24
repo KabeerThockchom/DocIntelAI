@@ -33,7 +33,8 @@ origins = [
     "http://127.0.0.1:8000",
     "http://0.0.0.0:8000",
     "http://localhost:3000",
-    "https://*.onrender.com",  # Allow Render domains
+    "https://docintel.onrender.com",  # Main Render domain
+    "https://*.onrender.com",  # Other Render domains
     os.getenv("FRONTEND_URL", ""),  # Allow configurable frontend URL
 ]
 
