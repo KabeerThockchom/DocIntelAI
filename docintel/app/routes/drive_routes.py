@@ -11,7 +11,7 @@ from app.parsers.pdf_parser import PDFParser
 from app.parsers.docx_parser import DocxParser
 from app.chunking.chunker import DocumentChunker
 from app.embeddings.embedder import AzureOpenAIEmbedder
-from app.storage.chroma_db import ChromaDBStorage
+from app.storage.qdrant_db import QdrantDBStorage
 from app.utils.logging import log_step, Timer
 
 
@@ -22,11 +22,11 @@ drive_client = GoogleDriveClient()
 chunker = DocumentChunker()
 embedder = AzureOpenAIEmbedder()
 
-# Helper function to get ChromaDB storage for the current user
-def get_user_storage(request: Request):
-    """Get ChromaDB storage for the current user."""
+# Helper function to get Qdrant storage for the current user
+def get_storage(request: Request):
+    """Get Qdrant storage for the current user."""
     user_id = getattr(request.state, "user_id", None)
-    return ChromaDBStorage(user_id=user_id)
+    return QdrantDBStorage(user_id=user_id)
 
 
 # Models
@@ -264,7 +264,7 @@ async def import_drive_file(
             embeddings = embedder.generate_embeddings(processed_doc.chunks)
             
             # Store document and embeddings
-            document_id = get_user_storage(request).store_document(processed_doc, embeddings)
+            document_id = get_storage(request).store_document(processed_doc, embeddings)
             
             log_step("Drive File Processing", f"Completed processing file: {filename}")
             
@@ -317,7 +317,7 @@ def process_drive_file_task(request: Request, file_id: str, metadata: Optional[D
             embeddings = embedder.generate_embeddings(processed_doc.chunks)
             
             # Store document and embeddings
-            document_id = get_user_storage(request).store_document(processed_doc, embeddings)
+            document_id = get_storage(request).store_document(processed_doc, embeddings)
             
             log_step("Drive File Processing", f"Completed processing file: {filename}")
             

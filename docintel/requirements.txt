@@ -27,7 +27,7 @@ azure-core
 groq
 
 # Embedding and vector storage
-chromadb
+qdrant-client
 tiktoken  # For token counting
 
 # Google Drive integration

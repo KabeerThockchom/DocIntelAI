@@ -20,7 +20,7 @@ RUN pip install --no-cache-dir -r requirements.txt
 
 # Copy the application code
 COPY ./app ./app
-COPY ./chroma_db ./chroma_db
+# We're now using Qdrant (cloud-hosted) instead of ChromaDB
 
 # Create necessary directories if they don't exist
 RUN mkdir -p ./uploads ./app/storage

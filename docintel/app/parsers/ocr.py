@@ -561,7 +561,7 @@ class OCRProcessor:
                     "content": [
                         {
                             "type": "text",
-                            "text": "You are an OCR assistant that extracts text from document images. Extract ALL text, preserve formatting, and use HTML when appropriate."
+                            "text": "You are an OCR assistant that extracts text from document images. Extract ALL text, preserve formatting, and use Markdown when appropriate."
                         }
                     ]
                 },
@@ -570,7 +570,7 @@ class OCRProcessor:
                     "content": [
                         {
                             "type": "text",
-                            "text": "Extract all the text from this document image. Preserve the layout with HTML formatting. If you see tables, format them as HTML tables."
+                            "text": "Extract all the text from this document image. Preserve the layout with Markdown formatting. If you see tables, format them as Markdown tables."
                         },
                         {
                             "type": "image_url",

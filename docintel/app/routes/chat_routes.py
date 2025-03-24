@@ -25,7 +25,7 @@ from app.rag.query_optimizer import split_query_into_subqueries
 from app.rag.retriever import retrieve_relevant_chunks, retrieve_relevant_chunks_async, retrieve_relevant_chunks_for_multiple_queries
 from app.rag.generator import generate_answer, generate_answer_async, batch_generate_answers
 from app.rag.groq_retrieval_decider import should_use_retrieval
-from app.storage.chroma_db import ChromaDBStorage
+from app.storage.qdrant_db import QdrantDBStorage
 from app.utils.logging import log_step, Timer
 
 router = APIRouter()
@@ -53,11 +53,11 @@ chat_messages = {}
 # Queue for processing updates
 session_queues = {}
 
-# Helper function to get ChromaDB storage for the current user
+# Helper function to get Qdrant storage for the current user
 def get_user_storage(request: Request):
-    """Get ChromaDB storage for the current user."""
+    """Get Qdrant storage for the current user."""
     user_id = getattr(request.state, "user_id", None)
-    return ChromaDBStorage(user_id=user_id)
+    return QdrantDBStorage(user_id=user_id)
 
 # Debug function to count active queues
 def count_active_queues():

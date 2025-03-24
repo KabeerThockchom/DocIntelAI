@@ -55,13 +55,11 @@ class DocumentChunker:
         with Timer("Document Chunking"):
             log_step("Chunking", f"Chunking document {metadata.get('source_document_name', 'unknown')}")
             
-            # For OCR text, always use heading-based chunking
+            # For OCR text, use token-based chunking
             if is_ocr:
-                chunks = self._heading_based_chunking(text, metadata)
-                if chunks:
-                    log_step("Chunking", f"Created {len(chunks)} chunks using heading-based chunking for OCR text")
-                    return chunks
-                log_step("Chunking", "No clear headings found in OCR text, falling back to token-based chunking")
+                chunks = self._token_based_chunking(text, metadata)
+                log_step("Chunking", f"Created {len(chunks)} chunks using token-based chunking for OCR text")
+                return chunks
             
             # Try heading-based chunking first if enabled for non-OCR text
             elif use_headings:

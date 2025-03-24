@@ -3,7 +3,7 @@ import asyncio
 from typing import List, Dict, Any, Optional
 import numpy as np
 from app.embeddings.embedder import AzureOpenAIEmbedder
-from app.storage.chroma_db import ChromaDBStorage
+from app.storage.qdrant_db import QdrantDBStorage
 from app.utils.logging import log_step, Timer
 from fastapi import Request
 import contextvars
@@ -36,8 +36,8 @@ def get_dummy_chunk(text: str) -> Any:
     )
 
 def get_user_storage(user_id: Optional[str] = None):
-    """Get ChromaDB storage for the specified user."""
-    return ChromaDBStorage(user_id=user_id)
+    """Get QdrantDB storage for the specified user."""
+    return QdrantDBStorage(user_id=user_id)
 
 async def retrieve_relevant_chunks_async(
     query: str, 
@@ -74,15 +74,15 @@ async def retrieve_relevant_chunks_async(
             
             query_embedding = list(query_embeddings.values())[0]
             
-            # Get the ChromaDB storage for this user
-            chroma_db = get_user_storage(user_id)
+            # Get the QdrantDB storage for this user
+            qdrant_db = get_user_storage(user_id)
             
             # Retrieve more chunks than needed for diversity
-            # Use a thread to run the synchronous chroma_db.query_similar
+            # Use a thread to run the synchronous qdrant_db.query_similar
             loop = asyncio.get_event_loop()
             results = await loop.run_in_executor(
                 None,
-                lambda: chroma_db.query_similar(
+                lambda: qdrant_db.query_similar(
                     query_text=query,
                     embedding=query_embedding,
                     n_results=top_k * 2,  # Get more results for post-processing
@@ -133,11 +133,11 @@ def retrieve_relevant_chunks(
         
         query_embedding = list(query_embeddings.values())[0]
         
-        # Get the ChromaDB storage for this user
-        chroma_db = get_user_storage(user_id)
+        # Get the QdrantDB storage for this user
+        qdrant_db = get_user_storage(user_id)
         
         # Retrieve more chunks than needed for diversity
-        results = chroma_db.query_similar(
+        results = qdrant_db.query_similar(
             query_text=query,
             embedding=query_embedding,
             n_results=top_k * 2,  # Get more results for post-processing

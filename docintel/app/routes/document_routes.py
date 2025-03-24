@@ -18,7 +18,7 @@ from app.parsers.pptx_parser import PPTXParser
 from app.parsers.excel_parser import ExcelParser
 from app.chunking.chunker import DocumentChunker
 from app.embeddings.embedder import AzureOpenAIEmbedder
-from app.storage.chroma_db import ChromaDBStorage
+from app.storage.qdrant_db import QdrantDBStorage
 from app.utils.logging import log_step, Timer
 
 
@@ -35,23 +35,23 @@ MAX_WORKERS = 10
 thread_pool = ThreadPoolExecutor(max_workers=MAX_WORKERS)
 
 
-# Helper function to get ChromaDB storage for the current user
-def get_user_storage(request: Request):
-    """Get ChromaDB storage for the current user."""
-    # First try to get user_id from request state (middleware)
-    user_id = getattr(request.state, "user_id", None)
+# Helper function to get Qdrant storage for the current user
+def get_user_storage(request: Request = None):
+    """Get Qdrant storage for the current user."""
+    user_id = None
     
-    # If not found in state, try to get from X-User-ID header
-    if not user_id:
-        user_id = request.headers.get("X-User-ID")
-        if user_id:
-            logging.info(f"Retrieved user_id from X-User-ID header: {user_id}")
-    
-    # Log if we still can't identify the user
-    if not user_id:
-        logging.warning("User ID not found in request state or headers")
+    if request:
+        # Try to get user ID from request state
+        user_id = getattr(request.state, "user_id", None)
         
-    return ChromaDBStorage(user_id=user_id)
+        # If not in state, try to get from headers
+        if not user_id and "X-User-ID" in request.headers:
+            user_id = request.headers["X-User-ID"]
+            
+        if not user_id:
+            logging.warning("User ID not found in request state or headers")
+          
+    return QdrantDBStorage(user_id=user_id)
 
 
 # Models
@@ -236,7 +236,7 @@ async def query_documents(request: Request, query_request: QueryRequest):
             
             query_embedding = list(query_embeddings.values())[0]
             
-            # Query user-specific ChromaDB
+            # Query user-specific Qdrant
             results = get_user_storage(request).query_similar(
                 query_text=query_request.query,
                 embedding=query_embedding,
@@ -281,7 +281,7 @@ async def delete_document(request: Request, document_id: str):
         elif document.get("metadata", {}).get("file_path"):
             file_path = document.get("metadata", {}).get("file_path")
         
-        # Delete from user-specific ChromaDB
+        # Delete from user-specific Qdrant
         success = get_user_storage(request).delete_document(document_id)
         
         if success:
@@ -337,7 +337,7 @@ async def list_documents(
             user_id = getattr(request.state, "user_id", None)
             logging.info(f"Listing documents for user: {user_id}")
             
-            # Get unique document IDs and metadata from user-specific ChromaDB
+            # Get unique document IDs and metadata from user-specific Qdrant
             filter_criteria = {}
             if document_type:
                 filter_criteria["source_document_type"] = document_type
@@ -403,7 +403,7 @@ async def get_system_statistics(request: Request):
             user_id = getattr(request.state, "user_id", None)
             logging.info(f"Getting document statistics for user: {user_id}")
             
-            # Get document statistics from user-specific ChromaDB
+            # Get document statistics from user-specific Qdrant
             documents = get_user_storage(request).list_documents()
             
             # Count document types
@@ -454,7 +454,7 @@ async def get_document_details(
             user_id = getattr(request.state, "user_id", None)
             logging.info(f"Retrieving document details for user: {user_id}")
             
-            # Get document metadata from user-specific ChromaDB
+            # Get document metadata from user-specific Qdrant
             document = get_user_storage(request).get_document(document_id)
             
             if not document:
@@ -556,7 +556,7 @@ async def get_document_file(request: Request, document_id: str, page: int = Quer
             file_path = direct_file_path
             file_name = os.path.basename(file_path)
         else:
-            # Try to get document metadata from Chroma DB
+            # Try to get document metadata from Qdrant DB
             document = None
             
             # First try with user-specific storage
@@ -575,7 +575,7 @@ async def get_document_file(request: Request, document_id: str, page: int = Quer
                     for temp_user_id in user_dirs:
                         if temp_user_id != user_id:  # Skip the current user as we already checked
                             logging.info(f"Checking collection for user: {temp_user_id}")
-                            temp_storage = ChromaDBStorage(user_id=temp_user_id)
+                            temp_storage = QdrantDBStorage(user_id=temp_user_id)
                             temp_document = temp_storage.get_document(document_id)
                             
                             if temp_document:
@@ -722,7 +722,7 @@ async def get_highlighted_document(
         # If document not found, try with default storage
         if not document:
             logging.info(f"Document {document_id} not found with user ID {user_id}, trying with default storage")
-            document = ChromaDBStorage().get_document(document_id)
+            document = QdrantDBStorage().get_document(document_id)
         
         if not document:
             logging.warning(f"Document {document_id} not found in any collection")
@@ -923,7 +923,7 @@ async def process_document_parallel(request: Request, file_path: str, filename: 
             # Generate embeddings for chunks asynchronously
             embeddings = await embedder.generate_embeddings_async(processed_doc.chunks)
             
-            # Store document and embeddings in user's ChromaDB collection
+            # Store document and embeddings in user's Qdrant collection
             document_id = get_user_storage(request).store_document(processed_doc, embeddings)
             
             log_step("Document Processing", f"Completed processing document: {filename} with parallel processing for user: {user_id}")
@@ -971,7 +971,7 @@ def process_document(request: Request, file_path: str, filename: str, metadata: 
             # Generate embeddings for chunks
             embeddings = embedder.generate_embeddings(processed_doc.chunks)
             
-            # Store document and embeddings in user's ChromaDB collection
+            # Store document and embeddings in user's Qdrant collection
             document_id = get_user_storage(request).store_document(processed_doc, embeddings)
             
             log_step("Document Processing", f"Completed processing document: {filename} for user: {user_id}")
@@ -1034,7 +1034,7 @@ async def get_citation_source(
         # If document not found, try with default storage
         if not document:
             logging.info(f"Document {document_id} not found with user ID {user_id}, trying with default storage")
-            document = ChromaDBStorage().get_document(document_id)
+            document = QdrantDBStorage().get_document(document_id)
             
         if not document:
             logging.error(f"Document {document_id} not found in any collection")
@@ -1050,7 +1050,7 @@ async def get_citation_source(
         # If chunks not found, try with default storage
         if not chunks:
             logging.info(f"Chunks not found with user ID {user_id}, trying with default storage")
-            chunks = ChromaDBStorage().get_document_chunks(document_id)
+            chunks = QdrantDBStorage().get_document_chunks(document_id)
             
         if not chunks:
             logging.error(f"No chunks found for document {document_id}")

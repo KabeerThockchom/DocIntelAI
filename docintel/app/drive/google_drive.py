@@ -18,7 +18,7 @@ from app.parsers.pptx_parser import PPTXParser
 from app.parsers.excel_parser import ExcelParser
 from app.chunking.chunker import DocumentChunker
 from app.embeddings.embedder import AzureOpenAIEmbedder
-from app.storage.chroma_db import ChromaDBStorage
+from app.storage.qdrant_db import QdrantDBStorage
 
 
 # Define OAuth 2.0 scopes
@@ -49,7 +49,7 @@ MIME_TYPE_MAP = {
 # Initialize components
 chunker = DocumentChunker()
 embedder = AzureOpenAIEmbedder()
-chroma_db = ChromaDBStorage()
+qdrant_db = QdrantDBStorage()
 
 class GoogleDriveClient:
     """Client for interacting with Google Drive API."""
@@ -365,7 +365,7 @@ class GoogleDriveClient:
                 embeddings = embedder.generate_embeddings(processed_doc.chunks)
                 
                 # Store document and embeddings
-                document_id = chroma_db.store_document(processed_doc, embeddings)
+                document_id = qdrant_db.store_document(processed_doc, embeddings)
                 
                 return {
                     "status": "success",

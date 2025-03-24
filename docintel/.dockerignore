@@ -62,5 +62,3 @@ Thumbs.db
 # Data directories (will be mounted as volumes)
 uploads/*
 !uploads/.gitkeep
-chroma_db/*
-!chroma_db/.gitkeep
