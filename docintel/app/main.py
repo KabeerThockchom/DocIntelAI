@@ -6,6 +6,16 @@ from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse
 from pathlib import Path
 import logging
+import sys
+
+# Configure logging
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
+    handlers=[logging.StreamHandler(sys.stdout)]
+)
+
+logger = logging.getLogger(__name__)
 
 # Load environment variables
 load_dotenv()
@@ -24,12 +34,13 @@ origins = [
     "http://0.0.0.0:8000",
     "http://localhost:3000",
     "https://*.onrender.com",  # Allow Render domains
-    "https://docuintel.onrender.com",  # Main app domain
     os.getenv("FRONTEND_URL", ""),  # Allow configurable frontend URL
 ]
 
 # Filter out empty strings from origins
 origins = [origin for origin in origins if origin]
+
+logger.info(f"Configured CORS origins: {origins}")
 
 app.add_middleware(
     CORSMiddleware,
@@ -48,12 +59,22 @@ async def user_id_middleware(request: Request, call_next):
     if user_id:
         # Make user_id available to route handlers via request.state
         request.state.user_id = user_id
-        logging.info(f"Request from user: {user_id}")
+        logger.info(f"Request from user: {user_id}")
     else:
         request.state.user_id = None
-        logging.info("Request from unauthenticated user")
+        logger.info("Request from unauthenticated user")
     
-    return await call_next(request)
+    response = await call_next(request)
+    return response
+
+@app.on_event("startup")
+async def startup_event():
+    """Log important information on startup"""
+    logger.info("Starting DocuIntel API")
+    logger.info(f"Environment: {os.getenv('ENVIRONMENT', 'development')}")
+    logger.info(f"Frontend URL: {os.getenv('FRONTEND_URL', 'not set')}")
+    logger.info(f"Using OpenAI API: {bool(os.getenv('OPENAI_API_KEY'))}")
+    logger.info(f"Using Supabase: {bool(os.getenv('SUPABASE_URL') and os.getenv('SUPABASE_KEY'))}")
 
 # Import routes
 from app.routes import document_routes, drive_routes, chat_routes
@@ -82,8 +103,9 @@ static_path = build_path / "static"
 if static_path.exists():
     # Mount the static files directory
     app.mount("/static", StaticFiles(directory=str(static_path)), name="static")
+    logger.info(f"Mounted static files from {static_path}")
 else:
-    print(f"WARNING: Static directory does not exist at {static_path}")
+    logger.warning(f"Static directory does not exist at {static_path}")
 
 # Define direct routes for favicon files
 @app.get("/favicon.ico")
@@ -146,11 +168,12 @@ async def serve_frontend(full_path: str):
     index_path = build_path / "index.html"
     
     if index_path.exists():
+        logger.info(f"Serving index.html for path: {full_path}")
         return FileResponse(str(index_path))
     else:
+        logger.error(f"Frontend files not found at {index_path}")
         raise HTTPException(status_code=404, detail=f"Frontend files not found at {index_path}")
-
 
 if __name__ == "__main__":
     import uvicorn
-    uvicorn.run("app.main:app", host="0.0.0.0", port=8000, reload=True)
+    uvicorn.run("app.main:app", host="0.0.0.0", port=int(os.getenv("PORT", "8000")), reload=True)
