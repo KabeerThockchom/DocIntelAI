@@ -22,8 +22,13 @@ origins = [
     "http://localhost:8000",
     "http://127.0.0.1:8000",
     "http://0.0.0.0:8000",
-    # Add any other origins that need access
+    "http://localhost:3000",
+    "https://*.onrender.com",  # Allow Render domains
+    os.getenv("FRONTEND_URL", ""),  # Allow configurable frontend URL
 ]
+
+# Filter out empty strings from origins
+origins = [origin for origin in origins if origin]
 
 app.add_middleware(
     CORSMiddleware,
