@@ -12,7 +12,7 @@ load_dotenv()
 
 # Create FastAPI app
 app = FastAPI(
-    title="Inkling API",
+    title="DocuIntel API",
     description="API for parsing, chunking, embedding, retrieving, and chatting with document content",
     version="1.0.0",
 )
@@ -60,7 +60,7 @@ app.include_router(chat_routes.router, prefix="/api/chat", tags=["Chat"])
 @app.get("/api/health", tags=["Health"])
 async def health_check():
     """Health check endpoint."""
-    return {"status": "ok", "message": "Inkling API is running"}
+    return {"status": "ok", "message": "DocuIntel API is running"}
 
 # Path to the frontend build directory
 current_file = Path(__file__)
@@ -74,9 +74,53 @@ if static_path.exists():
 else:
     print(f"WARNING: Static directory does not exist at {static_path}")
 
+# Define direct routes for favicon files
+@app.get("/favicon.ico")
+async def get_favicon():
+    favicon_path = build_path / "favicon.ico"
+    if favicon_path.exists():
+        return FileResponse(str(favicon_path), media_type="image/x-icon")
+    raise HTTPException(status_code=404, detail="Favicon not found")
+
+@app.get("/favicon-16x16.png")
+async def get_favicon_16():
+    favicon_path = build_path / "favicon-16x16.png"
+    if favicon_path.exists():
+        return FileResponse(str(favicon_path), media_type="image/png")
+    raise HTTPException(status_code=404, detail="Favicon 16x16 not found")
+
+@app.get("/favicon-32x32.png")
+async def get_favicon_32():
+    favicon_path = build_path / "favicon-32x32.png"
+    if favicon_path.exists():
+        return FileResponse(str(favicon_path), media_type="image/png")
+    raise HTTPException(status_code=404, detail="Favicon 32x32 not found")
+
+@app.get("/logo192.png")
+async def get_logo_192():
+    logo_path = build_path / "logo192.png"
+    if logo_path.exists():
+        return FileResponse(str(logo_path), media_type="image/png")
+    raise HTTPException(status_code=404, detail="Logo 192 not found")
+
+@app.get("/logo512.png")
+async def get_logo_512():
+    logo_path = build_path / "logo512.png"
+    if logo_path.exists():
+        return FileResponse(str(logo_path), media_type="image/png")
+    raise HTTPException(status_code=404, detail="Logo 512 not found")
+
+@app.get("/manifest.json")
+async def get_manifest():
+    manifest_path = build_path / "manifest.json"
+    if manifest_path.exists():
+        return FileResponse(str(manifest_path), media_type="application/json")
+    raise HTTPException(status_code=404, detail="Manifest not found")
+
 # Check if there are any other static assets at the root level
 for item in build_path.glob("*"):
-    if item.is_file() and item.name not in ["index.html"]:
+    if item.is_file() and item.name not in ["index.html", "favicon.ico", "favicon-16x16.png", 
+                                          "favicon-32x32.png", "logo192.png", "logo512.png", "manifest.json"]:
         # Mount individual files at root level
         app.mount(f"/{item.name}", StaticFiles(directory=str(build_path), html=True), name=item.name)
 

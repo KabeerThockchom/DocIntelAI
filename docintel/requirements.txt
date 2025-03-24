@@ -16,7 +16,7 @@ pillow  # For image processing
 
 # Optional enhanced document processing
 docx2pdf  # For better DOCX to image conversion (optional)
-pptx-export  # For better PPTX to image conversion (optional)
+# pptx-export  # For better PPTX to image conversion (optional) - REMOVED, not available on PyPI
 
 # Azure OpenAI
 openai
