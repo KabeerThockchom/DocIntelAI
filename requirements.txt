@@ -39,3 +39,4 @@ bcrypt
 
 # Optional system dependencies
 python-magic
+tenacity
