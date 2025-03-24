@@ -8,6 +8,9 @@ RUN apt-get update && apt-get install -y \
     build-essential \
     libffi-dev \
     libssl-dev \
+    poppler-utils \
+    tesseract-ocr \
+    libmagic1 \
     && apt-get clean \
     && rm -rf /var/lib/apt/lists/*
 
@@ -21,6 +24,7 @@ COPY ./docintel/app ./app
 # Set environment variables
 ENV PYTHONPATH=/app
 ENV PORT=8000
+ENV PYTHONUNBUFFERED=1
 
 # Expose the port
 EXPOSE 8000

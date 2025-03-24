@@ -1,9 +1,8 @@
 # Core FastAPI components
 fastapi
-uvicorn
+uvicorn[standard]
 python-multipart
 pydantic
-celery
 redis
 
 # Document parsing libraries
@@ -12,23 +11,18 @@ python-docx  # For DOCX parsing
 python-pptx  # For PPTX parsing
 openpyxl  # For Excel parsing
 pandas  # For CSV/Excel data processing
-pillow  # For image processing
+Pillow  # For image processing
+pdf2image  # For PDF to image conversion
 
-# Optional enhanced document processing
-docx2pdf  # For better DOCX to image conversion (optional)
-pptx-export  # For better PPTX to image conversion (optional)
-
-# Azure OpenAI
+# Azure OpenAI and LLM
 openai
 azure-identity
 azure-core
-
-# Groq Integration
 groq
 
 # Embedding and vector storage
 qdrant-client
-tiktoken  # For token counting
+tiktoken
 
 # Google Drive integration
 google-auth
@@ -38,3 +32,10 @@ google-api-python-client
 
 # Utils
 python-dotenv
+httpx
+python-jose
+passlib
+bcrypt
+
+# Optional system dependencies
+python-magic
