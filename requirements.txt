@@ -1,18 +1,40 @@
-fastapi==0.104.1
-uvicorn==0.24.0
-python-dotenv==1.0.0
-pydantic==2.5.2
-python-multipart==0.0.6
-httpx==0.25.2
-gunicorn==21.2.0
-python-jose==3.3.0
-passlib==1.7.4
-bcrypt==4.0.1
-supabase==2.0.3
-langchain==0.0.350
-openai==1.3.7
-chromadb==0.4.18
-tiktoken==0.5.1
-unstructured==0.10.30
-pdf2image==1.16.3
-pytesseract==0.3.10 
+# Core FastAPI components
+fastapi
+uvicorn
+python-multipart
+pydantic
+celery
+redis
+
+# Document parsing libraries
+PyMuPDF  # For PDF parsing
+python-docx  # For DOCX parsing
+python-pptx  # For PPTX parsing
+openpyxl  # For Excel parsing
+pandas  # For CSV/Excel data processing
+pillow  # For image processing
+
+# Optional enhanced document processing
+docx2pdf  # For better DOCX to image conversion (optional)
+pptx-export  # For better PPTX to image conversion (optional)
+
+# Azure OpenAI
+openai
+azure-identity
+azure-core
+
+# Groq Integration
+groq
+
+# Embedding and vector storage
+qdrant-client
+tiktoken  # For token counting
+
+# Google Drive integration
+google-auth
+google-auth-oauthlib
+google-auth-httplib2
+google-api-python-client
+
+# Utils
+python-dotenv

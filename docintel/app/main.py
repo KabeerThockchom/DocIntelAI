@@ -24,6 +24,7 @@ origins = [
     "http://0.0.0.0:8000",
     "http://localhost:3000",
     "https://*.onrender.com",  # Allow Render domains
+    "https://docuintel.onrender.com",  # Main app domain
     os.getenv("FRONTEND_URL", ""),  # Allow configurable frontend URL
 ]
 
@@ -62,8 +63,13 @@ app.include_router(document_routes.router, prefix="/api/documents", tags=["Docum
 app.include_router(drive_routes.router, prefix="/api/drive", tags=["Google Drive"])
 app.include_router(chat_routes.router, prefix="/api/chat", tags=["Chat"])
 
-@app.get("/api/health", tags=["Health"])
+@app.get("/healthz", tags=["Health"])
 async def health_check():
+    """Health check endpoint for Render."""
+    return {"status": "ok", "message": "DocuIntel API is running"}
+
+@app.get("/api/health", tags=["Health"])
+async def api_health_check():
     """Health check endpoint."""
     return {"status": "ok", "message": "DocuIntel API is running"}
 

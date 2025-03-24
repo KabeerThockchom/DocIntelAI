@@ -1,4 +1,3 @@
-# Use Python 3.11 slim image
 FROM python:3.11-slim
 
 # Set working directory
@@ -12,18 +11,12 @@ RUN apt-get update && apt-get install -y \
     && apt-get clean \
     && rm -rf /var/lib/apt/lists/*
 
-# Copy requirements first for better caching
+# Copy requirements first to leverage Docker cache
 COPY requirements.txt .
-
-# Install Python dependencies
 RUN pip install --no-cache-dir -r requirements.txt
 
 # Copy the application code
-COPY ./app ./app
-# We're now using Qdrant (cloud-hosted) instead of ChromaDB
-
-# Create necessary directories if they don't exist
-RUN mkdir -p ./uploads ./app/storage
+COPY ./docintel/app ./app
 
 # Set environment variables
 ENV PYTHONPATH=/app
@@ -32,5 +25,5 @@ ENV PORT=8000
 # Expose the port
 EXPOSE 8000
 
-# Command to run the application
-CMD uvicorn app.main:app --host 0.0.0.0 --port $PORT
+# Run the application
+CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000"] 
