@@ -260,7 +260,7 @@ class GoogleDriveClient:
             str(self.credentials_path), 
             SCOPES,
             # Use proper redirect URI for web application
-            redirect_uri="http://localhost:8000/google-drive-callback"
+            redirect_uri="https://docintel.fly.dev/documents"
         )
         
         # Configure authorization parameters
@@ -290,7 +290,7 @@ class GoogleDriveClient:
             flow = InstalledAppFlow.from_client_secrets_file(
                 str(self.credentials_path), 
                 SCOPES,
-                redirect_uri="http://localhost:8000/google-drive-callback"
+                redirect_uri="https://docintel.fly.dev/documents"
             )
             
             # Fetch the token

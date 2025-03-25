@@ -33,9 +33,7 @@ origins = [
     "http://127.0.0.1:8000",
     "http://0.0.0.0:8000",
     "http://localhost:3000",
-    "https://docintel.onrender.com",  # Main Render domain
-    "https://*.onrender.com",  # Other Render domains
-    os.getenv("FRONTEND_URL", ""),  # Allow configurable frontend URL
+    "https://docintel.fly.dev",  # Main production domain
 ]
 
 # Filter out empty strings from origins
@@ -47,9 +45,10 @@ app.add_middleware(
     CORSMiddleware,
     allow_origins=origins,
     allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*", "X-User-ID"],
+    allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS", "PATCH"],
+    allow_headers=["*", "X-User-ID", "X-Drive-Access-Token", "Authorization", "Content-Type"],
     expose_headers=["X-Queue-ID", "X-Realtime-Stream", "Content-Type", "Content-Length"],
+    max_age=3600,  # Cache preflight requests for 1 hour
 )
 
 # Add middleware to extract and validate user information
@@ -90,10 +89,17 @@ async def health_check():
     """Health check endpoint for Render."""
     return {"status": "ok", "message": "DocuIntel API is running"}
 
-@app.get("/api/health", tags=["Health"])
-async def api_health_check():
-    """Health check endpoint."""
-    return {"status": "ok", "message": "DocuIntel API is running"}
+@app.get("/api/health")
+async def api_health_check(request: Request):
+    """Health check endpoint with CORS information."""
+    return {
+        "status": "ok",
+        "message": "DocuIntel API is running",
+        "cors": {
+            "origin": request.headers.get("origin"),
+            "allowed_origins": origins,
+        }
+    }
 
 # Path to the frontend build directory
 current_file = Path(__file__)
