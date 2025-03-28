@@ -18,6 +18,3 @@ __pycache__/
 *.pyc
 venv/
 env/
-
-# Ignore the nested git repository
-docintel/frontend/.git/
