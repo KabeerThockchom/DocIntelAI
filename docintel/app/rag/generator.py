@@ -271,7 +271,7 @@ def _get_system_prompt() -> Dict[str, str]:
             "10. Always maintain context of the conversation history when responding.\n\n"
             
             "## Conversation History Guidelines\n"
-            "1. When the user asks 'what did I just say?' or similar, respond by directly quoting their previous message.\n"
+            "1. When the user asks 'what did I just say?' or similar, respond by directly quoting their previous message not the current question.\n"
             "2. When the user refers to content from earlier in the conversation, acknowledge and use that information.\n"
             "3. Track the topic thread of the conversation to provide coherent and relevant responses.\n"
             "4. If a question is ambiguous, use conversation history to determine what the user is asking about.\n\n"
