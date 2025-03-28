@@ -1,0 +1,274 @@
+/* EY Color Palette */
+:root {
+  /* Default EY Theme */
+  --ey-dark-gray: #333333;
+  --ey-yellow: #ffe600;
+  --ey-yellow-hover: #e6cf00;
+  --ey-white: #ffffff;
+  --ey-light-gray: #cccccc;
+  --ey-medium-gray: #737373;
+  --border-radius: 8px;
+  
+  /* Theme Variables (used for lava lamp and other themeable components) */
+  --theme-primary: var(--ey-yellow);
+  --theme-secondary: var(--ey-dark-gray);
+  --theme-primary-opacity-low: rgba(255, 230, 0, 0.1);
+  --theme-primary-opacity-medium: rgba(255, 230, 0, 0.5);
+  --theme-primary-opacity-high: rgba(255, 230, 0, 0.8);
+  --theme-secondary-opacity-low: rgba(51, 51, 51, 0.1);
+  --theme-secondary-opacity-medium: rgba(51, 51, 51, 0.5);
+  --theme-secondary-opacity-high: rgba(51, 51, 51, 0.8);
+  
+  /* Apple Theme */
+  --apple-blue: #0071e3;
+  --apple-pink: #ff2d55;
+  --apple-white: #ffffff;
+  --apple-light-gray: #f5f5f7;
+  --apple-dark-gray: #1d1d1f;
+  
+  /* Nvidia Theme */
+  --nvidia-green: #76b900;
+  --nvidia-black: #000000;
+  --nvidia-dark-gray: #333333;
+  --nvidia-white: #ffffff;
+  
+  /* Vanguard Theme */
+  --vanguard-red: #c10230;
+  --vanguard-darkred: #7b0018;
+  --vanguard-black: #000000;
+  --vanguard-white: #ffffff;
+}
+
+/* Default EY Theme Class */
+.theme-ey {
+  --theme-primary: var(--ey-yellow);
+  --theme-secondary: var(--ey-dark-gray);
+  --theme-primary-opacity-low: rgba(255, 230, 0, 0.1);
+  --theme-primary-opacity-medium: rgba(255, 230, 0, 0.5);
+  --theme-primary-opacity-high: rgba(255, 230, 0, 0.8);
+  --theme-secondary-opacity-low: rgba(51, 51, 51, 0.1);
+  --theme-secondary-opacity-medium: rgba(51, 51, 51, 0.5);
+  --theme-secondary-opacity-high: rgba(51, 51, 51, 0.8);
+}
+
+/* Apple Theme Class */
+.theme-apple {
+  --theme-primary: var(--apple-blue);
+  --theme-secondary: var(--apple-dark-gray);
+  --theme-primary-opacity-low: rgba(0, 113, 227, 0.1);
+  --theme-primary-opacity-medium: rgba(0, 113, 227, 0.5);
+  --theme-primary-opacity-high: rgba(0, 113, 227, 0.8);
+  --theme-secondary-opacity-low: rgba(29, 29, 31, 0.1);
+  --theme-secondary-opacity-medium: rgba(29, 29, 31, 0.5);
+  --theme-secondary-opacity-high: rgba(29, 29, 31, 0.8);
+}
+
+/* Nvidia Theme Class */
+.theme-nvidia {
+  --theme-primary: var(--nvidia-green);
+  --theme-secondary: var(--nvidia-black);
+  --theme-primary-opacity-low: rgba(118, 185, 0, 0.1);
+  --theme-primary-opacity-medium: rgba(118, 185, 0, 0.5);
+  --theme-primary-opacity-high: rgba(118, 185, 0, 0.8);
+  --theme-secondary-opacity-low: rgba(0, 0, 0, 0.1);
+  --theme-secondary-opacity-medium: rgba(0, 0, 0, 0.5);
+  --theme-secondary-opacity-high: rgba(0, 0, 0, 0.8);
+}
+
+/* Vanguard Theme Class */
+.theme-vanguard {
+  --theme-primary: var(--vanguard-red);
+  --theme-secondary: var(--vanguard-black);
+  --theme-primary-opacity-low: rgba(193, 2, 48, 0.1);
+  --theme-primary-opacity-medium: rgba(193, 2, 48, 0.5);
+  --theme-primary-opacity-high: rgba(193, 2, 48, 0.8);
+  --theme-secondary-opacity-low: rgba(0, 0, 0, 0.1);
+  --theme-secondary-opacity-medium: rgba(0, 0, 0, 0.5);
+  --theme-secondary-opacity-high: rgba(0, 0, 0, 0.8);
+}
+
+body {
+  margin: 0;
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen',
+    'Ubuntu', 'Cantarell', 'Fira Sans', 'Droid Sans', 'Helvetica Neue',
+    sans-serif;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  background-color: var(--ey-white);
+  color: var(--theme-secondary);
+  transition: background-color 0.3s ease, color 0.3s ease;
+}
+
+code {
+  font-family: source-code-pro, Menlo, Monaco, Consolas, 'Courier New',
+    monospace;
+  background-color: var(--theme-secondary-opacity-low);
+  padding: 0.2em 0.4em;
+  border-radius: 3px;
+}
+
+/* For Webkit browsers (Chrome, Safari) */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: var(--theme-secondary-opacity-low);
+}
+
+::-webkit-scrollbar-thumb {
+  background-color: var(--theme-secondary-opacity-medium);
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background-color: var(--theme-secondary);
+}
+
+/* Custom animations */
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes pulseHighlight {
+  0% { background-color: var(--theme-primary-opacity-low); }
+  50% { background-color: var(--theme-primary-opacity-medium); }
+  100% { background-color: var(--theme-primary-opacity-low); }
+}
+
+@keyframes borderPulse {
+  0% { border-color: var(--theme-primary); }
+  50% { border-color: var(--theme-secondary-opacity-medium); }
+  100% { border-color: var(--theme-primary); }
+}
+
+.fadeIn {
+  animation: fadeIn 0.5s ease-in-out;
+}
+
+.highlightPulse {
+  animation: pulseHighlight 2s infinite;
+}
+
+.ey-text-shadow {
+  text-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+}
+
+/* Theme Background colors */
+.theme-bg-primary-light {
+  background-color: var(--theme-primary-opacity-low);
+}
+
+.theme-bg-primary {
+  background-color: var(--theme-primary);
+  color: var(--theme-secondary);
+}
+
+.theme-bg-secondary {
+  background-color: var(--theme-secondary);
+  color: var(--ey-white);
+}
+
+.theme-bg-light {
+  background-color: var(--ey-light-gray);
+  color: var(--theme-secondary);
+}
+
+.theme-bg-white {
+  background-color: var(--ey-white);
+  color: var(--theme-secondary);
+}
+
+/* Theme Border colors */
+.theme-border-primary {
+  border: 1px solid var(--theme-primary);
+}
+
+.theme-border-secondary {
+  border: 1px solid var(--theme-secondary);
+}
+
+.theme-border-light {
+  border: 1px solid var(--ey-light-gray);
+}
+
+/* Theme Text colors */
+.theme-text-secondary {
+  color: var(--theme-secondary);
+}
+
+.theme-text-primary {
+  color: var(--theme-primary);
+}
+
+.theme-text-medium {
+  color: var(--ey-medium-gray);
+}
+
+.theme-text-light {
+  color: var(--ey-light-gray);
+}
+
+.theme-text-white {
+  color: var(--ey-white);
+}
+
+/* Global animations for chat message loading */
+@keyframes pulse {
+  0% {
+    opacity: 0.6;
+  }
+  50% {
+    opacity: 1;
+  }
+  100% {
+    opacity: 0.6;
+  }
+}
+
+@keyframes fadeInBounce {
+  0% {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  60% {
+    opacity: 1;
+    transform: translateY(-4px);
+  }
+  80% {
+    transform: translateY(2px);
+  }
+  100% {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes highlight {
+  0% {
+    background-color: var(--theme-primary-opacity-low);
+  }
+  100% {
+    background-color: transparent;
+  }
+}
+
+@keyframes progressAnimation {
+  0% {
+    transform: translateX(-100%);
+  }
+  100% {
+    transform: translateX(100%);
+  }
+}
+
+@keyframes shimmer {
+  0% {
+    background-position: -468px 0;
+  }
+  100% {
+    background-position: 468px 0;
+  }
+}
